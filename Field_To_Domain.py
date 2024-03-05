@@ -1,5 +1,25 @@
 import arcpy
-def Field_To_Domain(gdb, fc, field, domain_name):
+import os
+
+
+def get_gdb_path_of_layer(layer_name):
+    aprx = arcpy.mp.ArcGISProject("current")
+    mp = aprx.activeMap
+    layer = [layer for layer in mp.listLayers() if layer.name == layer_name][0]
+    if layer:
+        return os.path.dirname(layer.dataSource)
+    else:
+        return ""
+
+
+def field_to_domain(fc, field, domain_name):
+
+    gdb = get_gdb_path_of_layer(fc)
+
+    if not gdb:
+        arcpy.AddError(f"The Layer {fc} have no source or GDB.")
+        return
+    
     # set the environment
     arcpy.env.workspace = gdb
     # Check if the domain already exists
@@ -16,6 +36,7 @@ def Field_To_Domain(gdb, fc, field, domain_name):
         print(f"Field '{field}' not found in the feature class.")
         arcpy.AddError(f"Field '{field}' not found in the feature class.")
         return
+    
     field_type = field_obj.type
     # Create the domain based on field type
     if field_type in ['String', 'Date']:
@@ -32,15 +53,18 @@ def Field_To_Domain(gdb, fc, field, domain_name):
         print(f"Invalid field type '{field_type}'. Domain cannot be created.")
         arcpy.AddError(f"Invalid field type '{field_type}'. Domain cannot be created.")
         return
+    
     # get sorted unique values from the target field
     all_values = [row[0] for row in  arcpy.da.SearchCursor(fc, [field]) if row[0]]
     unique_values = sorted(list(set(all_values)))
     if not unique_values:
         arcpy.AddError(f"Field :{field} in FeatureClass :{fc} hase no values")
         return
+    
     # assign the field unique value to the domain
     for code, desc in enumerate(unique_values,1):
         arcpy.management.AddCodedValueToDomain(gdb, domain_name, code, code_description=desc)
+
     # assign the domain to the target field
     arcpy.management.AssignDomainToField(fc, field, domain_name)
     # update the existing value to the domain code value
@@ -52,13 +76,13 @@ def Field_To_Domain(gdb, fc, field, domain_name):
             cursor.updateRow(row)
         print("All Done Pro")
         
+
 if __name__ == '__main__':
     # ScriptTool parameters
-    gdb = arcpy.GetParameterAsText(0)
-    fc = arcpy.GetParameterAsText(1)
-    field = arcpy.GetParameterAsText(2)
-    domain_name = arcpy.GetParameterAsText(3)
+    # gdb = arcpy.GetParameterAsText(0)
+    fc = arcpy.GetParameterAsText(0)
+    field = arcpy.GetParameterAsText(1)
+    domain_name = arcpy.GetParameterAsText(2)
     
     # Run the Function
-    Field_To_Domain(gdb, fc, field, domain_name)
-    
+    field_to_domain(fc, field, domain_name)
